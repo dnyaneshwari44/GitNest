@@ -5,6 +5,7 @@ import './App.css';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import GitNestHomepage from './pages/GitNestHomepage';
+import NotFound from './pages/NotFound';
 
 
 const Dashboard = () => {
@@ -34,6 +35,8 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
       </Route>
+      
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

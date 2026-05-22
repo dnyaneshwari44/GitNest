@@ -1,1 +1,43 @@
-{"name":"backend","version":"1.0.0","type":"module","description":"GitNest","main":"index.js","scripts":{"dev":"nodemon src/index.js","start":"node src/index.js","test":"echo \"Error: no test specified\" && exit 0","lint":"echo \"No linting configured\""},"repository":{"type":"git","url":"git+https://github.com/Ankita15k/GitNest.git"},"author":"Ankita Kumari","license":"ISC","bugs":{"url":"https://github.com/Ankita15k/GitNest/issues"},"homepage":"https://github.com/Ankita15k/GitNest#readme","dependencies":{"bcryptjs":"^2.4.3","body-parser":"^1.20.2","cors":"^2.8.5","dotenv":"^16.3.1","express":"^4.21.1","express-mongo-sanitize":"^2.2.0","express-rate-limit":"^8.5.2","express-validator":"^7.3.2","http":"^0.0.1-security","jsonwebtoken":"^9.0.2","mongodb":"^6.10.0","mongoose":"^8.1.1","morgan":"^1.10.1","nodemon":"^3.1.4","simple-git":"^3.36.0","socket.io":"^4.8.1","uuid":"^11.0.0","yargs":"^17.7.2"}}
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "GitNest",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "lint": "echo \"No linting configured\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ankita15k/GitNest.git"
+  },
+  "author": "Ankita Kumari",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ankita15k/GitNest/issues"
+  },
+  "homepage": "https://github.com/Ankita15k/GitNest#readme",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.21.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.5.2",
+    "express-validator": "^7.3.2",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.10.0",
+    "mongoose": "^8.1.1",
+    "morgan": "^1.10.1",
+    "nodemon": "^3.1.4",
+    "simple-git": "^3.36.0",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.0",
+    "yargs": "^17.7.2"
+  }
+}

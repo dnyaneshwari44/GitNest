@@ -3,7 +3,7 @@ import User from '../models/User.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
-import { logActivity } from '../services/activity.service.js';
+import { logActivitySafely } from '../utils/logActivitySafely.js';
 import ACTIVITY_TYPES from '../constants/activityTypes.js';
 
 // Get user profile by ID or username
@@ -92,18 +92,14 @@ export const updateProfile = asyncHandler(async (req, res, next) => {
   await user.save();
 
   if (changedFields.length > 0) {
-    try {
-      await logActivity({
-        actor: req.user.id,
-        type: ACTIVITY_TYPES.PROFILE_UPDATED,
-        targetUser: req.user.id,
-        metadata: {
-          changedFields,
-        },
-      });
-    } catch {
-      // Prevent activity logging failures from blocking profile updates
-    }
+    await logActivitySafely({
+      actor: req.user.id,
+      type: ACTIVITY_TYPES.PROFILE_UPDATED,
+      targetUser: req.user.id,
+      metadata: {
+        changedFields,
+      },
+    });
   }
 
   sendSuccess(res, 200, user, 'Profile updated successfully');

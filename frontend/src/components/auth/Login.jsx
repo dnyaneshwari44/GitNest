@@ -83,14 +83,10 @@ const Login = () => {
 
       navigate("/");
     } catch (err) {
-      // Field-level API errors
-      if (
-        err.response?.data?.errors &&
-        Array.isArray(err.response.data.errors)
-      ) {
+      if (err?.errors && Array.isArray(err.errors)) {
         const fieldErrors = {};
-        err.response.data.errors.forEach((error) => {
-          fieldErrors[error.field] = error.message;
+        err.errors.forEach((apiError) => {
+          fieldErrors[apiError.field] = apiError.message;
         });
         setValidationErrors(fieldErrors);
       }

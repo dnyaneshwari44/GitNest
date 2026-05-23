@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import Repository from '../models/Repository.model.js';
+import User from '../models/User.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
@@ -45,7 +47,7 @@ export const createRepository = asyncHandler(async (req, res, next)=> {
     sendSuccess(res, 201, repository, 'Repository created successfully');
 });
 
-export const getRepository = asyncHandler(async (req, resizeBy, next) => {
+export const getRepository = asyncHandler(async (req, res, next) => {
     const { username, reponame } = req.params;
 
     const repository = await Repository.findOne({ name: reponame})
@@ -62,7 +64,7 @@ export const getRepository = asyncHandler(async (req, resizeBy, next) => {
         return next(new AppError('Repository not found', 404));
     }
 
-    sendSuccess(resizeBy, 200, repository);
+    sendSuccess(res, 200, repository);
 });
 
 export const getUserRepositories = asyncHandler(async (req, res, next) => {
@@ -128,81 +130,137 @@ export const deleteRepository = asyncHandler(async (req, res, next) => {
     sendSuccess(res, 200, null, 'Repository deleted successfully');
 });
 
-export const starRepository = asyncHandler(async(req, res, next) => {
-    const { reponame } = req.params;
+export const starRepository = asyncHandler(async (req, res, next) => {
+    const { username, reponame } = req.params;
 
-    const repository = await Repository.findOne({ name: reponame });
-
-    if(!repository) {
+    const owner = await User.findOne({ username: username.toLowerCase() }).select('_id');
+    if (!owner) {
         return next(new AppError('Repository not found', 404));
     }
 
-    const alreadyStarred = repository.stars.includes(req.user.id);
-
-    if (alreadyStarred) {
-        repository.stars = repository.stars.filter(
-            (id) => id.toString() !== req.user.id
-        );
-    } else {
-        repository.stars.push(req.user.id);
+    const repo = await Repository.findOne({ name: reponame, owner: owner._id });
+    if (!repo) {
+        return next(new AppError('Repository not found', 404));
     }
 
-    await repository.save();
+    const isCurrentlyStarred = await Repository.findOne(
+        { _id: repo._id, stars: req.user._id },
+        { _id: 1 }
+    );
 
-    if (!alreadyStarred) {
+    let updated;
+    if (isCurrentlyStarred) {
+        updated = await Repository.findByIdAndUpdate(
+            repo._id,
+            { $pull: { stars: req.user._id } },
+            { new: true, fields: { stars: 1 } }
+        );
+    } else {
+        updated = await Repository.findOneAndUpdate(
+            { _id: repo._id, stars: { $ne: req.user._id } },
+            { $addToSet: { stars: req.user._id } },
+            { new: true, fields: { stars: 1 } }
+        );
+    }
+
+    if (!updated) {
+        return next(new AppError('Repository not found', 404));
+    }
+
+    if (updated && !isCurrentlyStarred) {
         await logActivitySafely({
             actor: req.user.id,
             type: ACTIVITY_TYPES.REPOSITORY_STARRED,
-            repository: repository._id,
-            metadata: {
-                repoName: repository.name,
-            },
+            repository: repo._id,
+            metadata: { repoName: repo.name },
         });
     }
 
-    const message = alreadyStarred
-    ? 'Repository unstarred successfully'
-    : 'Repository starred successfully';
+    const message = isCurrentlyStarred
+        ? 'Repository unstarred successfully'
+        : 'Repository starred successfully';
 
-    sendSuccess(res, 200, { stars: repository.stars.length }, message);
+    sendSuccess(res, 200, { stars: updated.stars.length }, message);
 });
 
 export const forkRepository = asyncHandler(async (req, res, next) => {
-    const { reponame } = req.params;
+    const { username, reponame } = req.params;
 
-    const original = await Repository.findOne({ name: reponame });
-
-    if(!original) {
+    const owner = await User.findOne({ username: username.toLowerCase() }).select('_id');
+    if (!owner) {
         return next(new AppError('Repository not found', 404));
     }
 
-    if (original.owner.toString() === req.user.id) {
-        return next(new AppError('You cannot fork your own repository', 404));
+    const session = await mongoose.startSession();
+    let forked;
+    try {
+        session.startTransaction({
+            readConcern: { level: 'snapshot' },
+            writeConcern: { w: 'majority' },
+        });
+
+        const original = await Repository.findOne({
+            name: reponame,
+            owner: owner._id,
+        }).session(session);
+
+        if (!original) {
+            await session.abortTransaction();
+            return next(new AppError('Repository not found', 404));
+        }
+
+        if (original.owner.toString() === req.user.id) {
+            await session.abortTransaction();
+            return next(new AppError('You cannot fork your own repository', 400));
+        }
+
+        const existing = await Repository.findOne({
+            name: original.name,
+            owner: req.user._id,
+            forkedFrom: original._id,
+        }).session(session);
+
+        if (existing) {
+            await session.abortTransaction();
+            return next(new AppError('You have already forked this repository', 400));
+        }
+
+        [forked] = await Repository.create([{
+            name: original.name,
+            owner: req.user._id,
+            description: original.description,
+            visibility: original.visibility,
+            language: original.language,
+            topics: original.topics,
+            defaultBranch: original.defaultBranch,
+            forkedFrom: original._id,
+        }], { session });
+
+        const parentUpdate = await Repository.updateOne(
+            { _id: original._id },
+            { $addToSet: { forks: forked._id } },
+            { session }
+        );
+
+        if (parentUpdate.modifiedCount === 0) {
+            await session.abortTransaction();
+            return next(new AppError('Fork conflict — please retry', 409));
+        }
+
+        await session.commitTransaction();
+        sendSuccess(res, 201, forked, 'Repository forked successfully');
+    } catch (error) {
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+        if (error.code === 11000) {
+            return next(new AppError('You have already forked this repository', 400));
+        }
+        if (error.errorLabels?.includes('TransientTransactionError')) {
+            return next(new AppError('Fork conflict — please retry', 409));
+        }
+        return next(new AppError('Fork operation failed', 500));
+    } finally {
+        session.endSession();
     }
-
-    const alreadyForked = await Repository.findOne({
-        name: reponame,
-        owner: req.user.id,
-        forkedFrom: original._id,
-    });
-
-    if(alreadyForked) {
-        return next(new AppError('You have already forked this repository', 400));
-    }
-
-    const forked = await Repository.create({
-    name: original.name,
-    owner: req.user.id,
-    description: original.description,
-    visibility: 'public',
-    language: original.language,
-    topics: original.topics,
-    defaultBranch: original.defaultBranch,
-    forkedFrom: original._id,
-    });
-
-    original.forks.push(forked._id);
-    await original.save();
-
-    sendSuccess(res, 201, forked, 'Repository forked successfully');
 });

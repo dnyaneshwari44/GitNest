@@ -262,6 +262,13 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
+**Environment variables**
+
+- `backend/.env` should include `MONGO_URI`, `JWT_SECRET`, and `JWT_EXPIRE`.
+- Optional production settings: `TRUST_PROXY=1` (behind reverse proxy) and `CORS_ORIGIN` (comma-separated origins).
+- Optional security settings: `REQUEST_BODY_LIMIT` (e.g., `10kb`), `API_RATE_LIMIT_MAX`, `API_RATE_LIMIT_WINDOW_MS`, `AUTH_RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MS`, `LOG_REQUESTS=1`.
+- `frontend/.env` should include `VITE_API_BASE_URL` (for example: `http://localhost:5000`).
+
 **4. Open the app**
 
 - Frontend: http://localhost:5173
@@ -540,6 +547,15 @@ We love contributions! GitNest is a **GSSoC 2026** project and welcomes develope
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for full details on the workflow, coding standards, and commit message format.
 
+## 💖 Contributors
+
+Thanks to all the amazing people who contribute to **GitNest** 🚀
+
+<p align="center">
+  <a href="https://github.com/Ankita15k/GitNest/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=Ankita15k/GitNest" alt="Contributors"/>
+  </a>
+</p>
 
 ## 🗺️ Roadmap
 

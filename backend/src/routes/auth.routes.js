@@ -2,37 +2,37 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { register, login, getMe } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/authMiddleware.js';
-import validate from '../middleware/validate.js';
+import validateRequest from '../middleware/validateRequest.js';
 import { registerValidator, loginValidator } from '../validators/auth.validators.js';
+import schemaValidator from '../middleware/schemaValidator.js';
+import { contracts } from '../contracts/index.js';
+import { sendError } from '../utils/responseHandlers.js';
+import ERROR_CODES from '../constants/errorCodes.js';
 
 const router = express.Router();
 
+const toNumber = (value, fallback) => {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
-  message: 'Too many requests from this IP, please try again after 15 minutes',
+	windowMs: toNumber(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+	max: toNumber(process.env.AUTH_RATE_LIMIT_MAX, 10),
+	standardHeaders: true,
+	legacyHeaders: false,
+	handler: (req, res) => {
+		sendError(res, {
+			statusCode: 429,
+			code: ERROR_CODES.RATE_LIMITED,
+			message: 'Too many auth attempts, please try again later',
+			requestId: req.requestId,
+		});
+	},
 });
 
-/**
- * @route   POST /api/v1/auth/register
- * @desc    Register a new user
- * @access  Public
- */
-router.post('/register', validate(registerValidator), authLimiter, register);
-
-/**
- * @route   POST /api/v1/auth/login
- * @desc    Login user and get token
- * @access  Public
- */
-router.post('/login', validate(loginValidator), authLimiter, login);
-
-/**
- * @route   GET /api/v1/auth/me
- * @desc    Get current authenticated user
- * @access  Private
- */
-router.get('/me', protect, getMe);
+router.post('/register', authLimiter, ...schemaValidator(contracts.auth.register), registerValidator, validateRequest, register);
+router.post('/login', authLimiter, ...schemaValidator(contracts.auth.login), loginValidator, validateRequest, login);
+router.get('/me', protect, ...schemaValidator(contracts.auth.me), getMe);
 
 export default router;
-

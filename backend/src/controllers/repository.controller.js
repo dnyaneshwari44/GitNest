@@ -12,6 +12,9 @@ import ACTIVITY_TYPES from '../constants/activityTypes.js';
 import paginate, { buildPaginationMeta } from '../utils/paginate.js';
 import { generateReadme } from '../utils/templates/readmeTemplates.js';
 import { generateGitignore } from '../utils/templates/gitignoreTemplates.js';
+import { v4 as uuidv4 } from 'uuid';
+import SagaOrchestrator from '../services/saga/sagaOrchestrator.js';
+import eventEmitter from '../events/eventEmitter.js';
 
 // DRY helper — resolves a :username param to the owner document's _id.
 // Returns null when the username does not exist so callers can 404 cleanly.
@@ -283,48 +286,108 @@ export const starRepository = asyncHandler(
             req.user.id
         );
 
-        let result;
-        if (alreadyStarred) {
-            result = await Repository.updateOne(
-                { _id: repository._id, stars: req.user.id },
-                { $pull: { stars: req.user.id } }
-            );
-        } else {
-            result = await Repository.updateOne(
-                { _id: repository._id, stars: { $ne: req.user.id } },
-                { $addToSet: { stars: req.user.id } }
-            );
-        }
+        const sagaId = req.headers['idempotency-key'] || uuidv4();
+        const actorId = req.user.id;
+        const repoId = repository._id.toString();
 
-        if (result.modifiedCount > 0 && !alreadyStarred) {
-            try {
-                await logActivity({
-                    actor: req.user.id,
-                    type: ACTIVITY_TYPES.REPOSITORY_STARRED,
-                    repository: repository._id,
-                    metadata: {
-                        repoName: repository.name,
+        if (alreadyStarred) {
+            const unstarSteps = [
+                {
+                    name: 'updateRepositoryStars',
+                    execute: async (context) => {
+                        const result = await Repository.updateOne(
+                            { _id: context.repoId, stars: context.actorId },
+                            { $pull: { stars: context.actorId } }
+                        );
+                        if (result.matchedCount === 0) {
+                            throw new AppError('Repository not found', 404);
+                        }
+                        context.wasStarred = result.modifiedCount > 0;
                     },
+                    compensate: async (context) => {
+                        if (context.wasStarred) {
+                            await Repository.updateOne(
+                                { _id: context.repoId, stars: { $ne: context.actorId } },
+                                { $addToSet: { stars: context.actorId } }
+                            );
+                        }
+                    }
+                }
+            ];
+
+            try {
+                await SagaOrchestrator.executeSaga(
+                    sagaId,
+                    'UNSTAR_REPOSITORY',
+                    unstarSteps,
+                    { actorId, repoId, repoName: repository.name }
+                );
+
+                eventEmitter.emit('REPOSITORY_UNSTARRED', {
+                    actorId,
+                    repoId,
+                    repoName: repository.name,
                 });
-            } catch {
-                // Prevent activity logging failures from blocking star actions
+
+                const updated = await Repository.findById(repository._id);
+                return sendSuccess(
+                    res,
+                    200,
+                    { stars: updated.stars.length },
+                    'Repository unstarred successfully'
+                );
+            } catch (error) {
+                if (error instanceof AppError) return next(error);
+                return next(new AppError(error.message || 'Unstar operation failed', 500));
+            }
+        } else {
+            const starSteps = [
+                {
+                    name: 'updateRepositoryStars',
+                    execute: async (context) => {
+                        const result = await Repository.updateOne(
+                            { _id: context.repoId, stars: { $ne: context.actorId } },
+                            { $addToSet: { stars: context.actorId } }
+                        );
+                        if (result.matchedCount === 0) {
+                            throw new AppError('Repository not found', 404);
+                        }
+                    },
+                    compensate: async (context) => {
+                        await Repository.updateOne(
+                            { _id: context.repoId },
+                            { $pull: { stars: context.actorId } }
+                        );
+                    }
+                }
+            ];
+
+            try {
+                await SagaOrchestrator.executeSaga(
+                    sagaId,
+                    'STAR_REPOSITORY',
+                    starSteps,
+                    { actorId, repoId, repoName: repository.name }
+                );
+
+                eventEmitter.emit('REPOSITORY_STARRED', {
+                    actorId,
+                    repoId,
+                    repoName: repository.name,
+                });
+
+                const updated = await Repository.findById(repository._id);
+                return sendSuccess(
+                    res,
+                    200,
+                    { stars: updated.stars.length },
+                    'Repository starred successfully'
+                );
+            } catch (error) {
+                if (error instanceof AppError) return next(error);
+                return next(new AppError(error.message || 'Star operation failed', 500));
             }
         }
-
-        const updated = await Repository.findById(
-            repository._id
-        );
-
-        const message = alreadyStarred
-            ? 'Repository unstarred successfully'
-            : 'Repository starred successfully';
-
-        sendSuccess(
-            res,
-            200,
-            { stars: updated.stars.length },
-            message
-        );
     }
 );
 
@@ -360,90 +423,114 @@ export const forkRepository = asyncHandler(
             );
         }
 
-        const session = await mongoose.startSession();
-        let forked;
+        const sagaId = req.headers['idempotency-key'] || uuidv4();
+        const actorId = req.user.id;
+
+        const forkSteps = [
+            {
+                name: 'resolveAndValidate',
+                execute: async (context) => {
+                    const existing = await Repository.findOne({
+                        name: original.name,
+                        owner: context.actorId,
+                        forkedFrom: original._id,
+                    });
+                    if (existing) {
+                        throw new AppError('You have already forked this repository', 400);
+                    }
+                },
+                compensate: null
+            },
+            {
+                name: 'resolveForkName',
+                execute: async (context) => {
+                    let forkName = original.name;
+                    const nameConflict = await Repository.findOne({
+                        owner: context.actorId,
+                        name: forkName,
+                    });
+
+                    if (nameConflict) {
+                        forkName = `${original.name}-fork`;
+                        const suffixConflict = await Repository.findOne({
+                            owner: context.actorId,
+                            name: forkName,
+                        });
+                        if (suffixConflict) {
+                            throw new AppError(
+                                `A repository named "${forkName}" already exists in your account. Please rename it first.`,
+                                409
+                            );
+                        }
+                    }
+                    context.forkName = forkName;
+                },
+                compensate: null
+            },
+            {
+                name: 'createForkedDoc',
+                execute: async (context) => {
+                    const [forked] = await Repository.create([
+                        {
+                            name: context.forkName,
+                            owner: context.actorId,
+                            description: original.description,
+                            visibility: original.visibility || 'public',
+                            language: original.language,
+                            topics: original.topics,
+                            defaultBranch: original.defaultBranch,
+                            forkedFrom: original._id,
+                        }
+                    ]);
+                    context.forkedId = forked._id.toString();
+                    context.forkedRepo = forked;
+                },
+                compensate: async (context) => {
+                    if (context.forkedId) {
+                        await Repository.deleteOne({ _id: context.forkedId });
+                    }
+                }
+            },
+            {
+                name: 'updateOriginalForks',
+                execute: async (context) => {
+                    await Repository.findByIdAndUpdate(original._id, {
+                        $addToSet: { forks: context.forkedId }
+                    });
+                },
+                compensate: async (context) => {
+                    if (context.forkedId) {
+                        await Repository.findByIdAndUpdate(original._id, {
+                            $pull: { forks: context.forkedId }
+                        });
+                    }
+                }
+            }
+        ];
 
         try {
-            session.startTransaction();
-
-            const existingQuery = Repository.findOne({
-                name: reponame,
-                owner: req.user.id,
-                forkedFrom: original._id,
-            });
-            const existing = typeof existingQuery?.session === 'function'
-                ? await existingQuery.session(session)
-                : await existingQuery;
-
-            if (existing) {
-                await session.abortTransaction();
-                return next(
-                    new AppError(
-                        'You have already forked this repository',
-                        400
-                    )
-                );
-            }
-
-            [forked] = await Repository.create(
-                [
-                    {
-                        name: original.name,
-                        owner: req.user.id,
-                        description: original.description,
-                        visibility: original.visibility,
-                        language: original.language,
-                        topics: original.topics,
-                        defaultBranch: original.defaultBranch,
-                        forkedFrom: original._id,
-                    },
-                ],
-                { session }
+            const context = await SagaOrchestrator.executeSaga(
+                sagaId,
+                'FORK_REPOSITORY',
+                forkSteps,
+                { actorId }
             );
 
-        // Resolve a safe fork name — auto-suffix if original name is taken
-        // by a non-fork repo already in the user's account
-        let forkName = original.name;
-        const nameConflict = await Repository.findOne({
-            owner: req.user.id,
-            name: forkName,
-        });
-
-        if (nameConflict) {
-            forkName = `${original.name}-fork`;
-            const suffixConflict = await Repository.findOne({
-                owner: req.user.id,
-                name: forkName,
+            eventEmitter.emit('REPOSITORY_FORKED', {
+                actorId,
+                repoId: context.forkedId,
+                repoName: context.forkName,
             });
-            if (suffixConflict) {
-                return next(
-                    new AppError(
-                        `A repository named "${forkName}" already exists in your account. Please rename it first.`,
-                        409
-                    )
-                );
-            }
+
+            sendSuccess(
+                res,
+                201,
+                context.forkedRepo,
+                'Repository forked successfully'
+            );
+        } catch (error) {
+            if (error instanceof AppError) return next(error);
+            return next(new AppError(error.message || 'Fork operation failed', error.statusCode || 500));
         }
-
-        const forked = await Repository.create({
-            name: forkName,
-            owner: req.user.id,
-            description: original.description,
-            visibility: 'public',
-            language: original.language,
-            topics: original.topics,
-            defaultBranch: original.defaultBranch,
-            forkedFrom: original._id,
-        });
-
-        original.forks.push(forked._id);
-        await original.save();
-
-        sendSuccess(
-            res,
-            201,
-            forked,
-            'Repository forked successfully'
-        );
     }
 );

@@ -22,24 +22,42 @@ const mockNext = jest.fn();
 
 const buildRes = () => {
   const res = { statusCode: null, body: null };
-  res.status = (code) => { res.statusCode = code; return res; };
-  res.json = (body) => { res.body = body; return res; };
+
+  res.status = (code) => {
+    res.statusCode = code;
+    return res;
+  };
+
+  res.json = (body) => {
+    res.body = body;
+    return res;
+  };
+
   res.locals = {};
+
   return res;
 };
 
-const buildReq = (username) => ({ params: { username } });
+const buildReq = (username) => ({
+  params: { username },
+});
 
 // ---------------------------------------------------------------------------
 // Inline stub for the User model — avoids a live MongoDB connection.
 // ---------------------------------------------------------------------------
 
-let stubbedUser = null;
+let mockStubbedUser = null;
 
 jest.mock('../src/models/User.model.js', () => ({
   default: {
     findOne: jest.fn(async ({ username }) => {
-      if (stubbedUser && stubbedUser.username === username) return stubbedUser;
+      if (
+        mockStubbedUser &&
+        mockStubbedUser.username === username
+      ) {
+        return mockStubbedUser;
+      }
+
       return null;
     }),
   },
@@ -49,7 +67,12 @@ jest.mock('../src/models/User.model.js', () => ({
 // so the module resolves without a real connection.
 jest.mock('mongoose', () => ({
   default: {
-    Types: { ObjectId: { isValid: () => false } },
+    Types: {
+      ObjectId: {
+        isValid: () => false,
+      },
+    },
+
     startSession: jest.fn(async () => ({
       startTransaction: jest.fn(),
       commitTransaction: jest.fn(),
@@ -69,7 +92,9 @@ jest.mock('../src/utils/logActivitySafely.js', () => ({
 // Import the controller after mocks are in place.
 // ---------------------------------------------------------------------------
 
-const { getUserProfile } = await import('../src/controllers/user.controller.js');
+const { getUserProfile } = await import(
+  '../src/controllers/user.controller.js'
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -78,11 +103,16 @@ const { getUserProfile } = await import('../src/controllers/user.controller.js')
 describe('getUserProfile', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    stubbedUser = null;
+    mockStubbedUser = null;
   });
 
   test('returns 200 and the user document for a valid username', async () => {
-    stubbedUser = { username: 'alice', email: 'alice@example.com', bio: 'Hello' };
+    mockStubbedUser = {
+      username: 'alice',
+      email: 'alice@example.com',
+      bio: 'Hello',
+    };
+
     const req = buildReq('alice');
     const res = buildRes();
 
@@ -95,7 +125,11 @@ describe('getUserProfile', () => {
   });
 
   test('is case-insensitive — uppercased username resolves the same document', async () => {
-    stubbedUser = { username: 'alice', email: 'alice@example.com' };
+    mockStubbedUser = {
+      username: 'alice',
+      email: 'alice@example.com',
+    };
+
     const req = buildReq('ALICE');
     const res = buildRes();
 
@@ -106,31 +140,38 @@ describe('getUserProfile', () => {
   });
 
   test('returns 404 when username does not exist', async () => {
-    stubbedUser = null;
+    mockStubbedUser = null;
+
     const req = buildReq('ghost');
     const res = buildRes();
 
     await getUserProfile(req, res, mockNext);
 
     expect(mockNext).toHaveBeenCalledTimes(1);
+
     const err = mockNext.mock.calls[0][0];
+
     expect(err.statusCode).toBe(404);
   });
 
   // Core regression: a raw 24-hex-char ObjectId must NOT return a user document.
   test('returns 404 when a valid MongoDB ObjectId is supplied as the username', async () => {
-    // Simulate a DB that has a user whose _id matches this ObjectId — the
-    // controller must not find it because it must only query by username.
     const objectId = '507f1f77bcf86cd799439011';
-    stubbedUser = { username: objectId, email: 'internal@example.com' };
 
-    // Override findOne to return null for username-based lookup while a
-    // hypothetical findById call would have returned a document.
-    const { default: User } = await import('../src/models/User.model.js');
+    mockStubbedUser = {
+      username: objectId,
+      email: 'internal@example.com',
+    };
+
+    const { default: User } = await import(
+      '../src/models/User.model.js'
+    );
+
     User.findOne.mockImplementation(async ({ username }) => {
-      // The user's actual username is NOT the ObjectId string — simulates the
-      // real-world case where the attacker supplies an ID, not a username.
-      if (username === 'realusername') return stubbedUser;
+      if (username === 'realusername') {
+        return mockStubbedUser;
+      }
+
       return null;
     });
 
@@ -139,18 +180,26 @@ describe('getUserProfile', () => {
 
     await getUserProfile(req, res, mockNext);
 
-    // The controller must call next with a 404 — it may not return user data.
     expect(mockNext).toHaveBeenCalledTimes(1);
+
     const err = mockNext.mock.calls[0][0];
+
     expect(err.statusCode).toBe(404);
     expect(res.body).toBeNull();
   });
 
   test('never calls User.findById on any input', async () => {
-    const { default: User } = await import('../src/models/User.model.js');
+    const { default: User } = await import(
+      '../src/models/User.model.js'
+    );
+
     User.findById = jest.fn();
 
-    await getUserProfile(buildReq('someuser'), buildRes(), mockNext);
+    await getUserProfile(
+      buildReq('someuser'),
+      buildRes(),
+      mockNext
+    );
 
     expect(User.findById).not.toHaveBeenCalled();
   });

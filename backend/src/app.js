@@ -21,6 +21,7 @@ import swaggerSpec from './config/swagger.js';
 import { requestIdMiddleware, attachRequestIdToResponse } from './middleware/requestId.js';
 import { sendError } from './utils/responseHandlers.js';
 import ERROR_CODES from './constants/errorCodes.js';
+import './events/subscribers.js';
 
 const createApp = () => {
   const app = express();

@@ -3,6 +3,8 @@ import path from "path";
 import simpleGit from "simple-git";
 import mongoose from "mongoose";
 import Repository from "../models/Repository.model.js";
+import PullRequest from "../models/PullRequest.model.js";
+import Activity from "../models/Activity.model.js";
 import User from "../models/User.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
@@ -216,6 +218,30 @@ export const deleteRepository = asyncHandler(async (req, res, next) => {
   if (!repository) {
     return next(new AppError("Repository not found", 404));
   }
+
+  const repoId = repository._id;
+
+  // 1. Remove filesystem directory
+  const repoPath = path.resolve(process.cwd(), "repositories", req.user.id, repository.name);
+  fs.rmSync(repoPath, { recursive: true, force: true });
+
+  // 2. Nullify forkedFrom on repos that forked from this one
+  await Repository.updateMany(
+    { forkedFrom: repoId },
+    { $set: { forkedFrom: null } },
+  );
+
+  // 3. Remove this repo ID from forks arrays of other repos
+  await Repository.updateMany(
+    { forks: repoId },
+    { $pull: { forks: repoId } },
+  );
+
+  // 4. Delete orphaned Activity records referencing this repository
+  await Activity.deleteMany({ repository: repoId });
+
+  // 5. Delete PullRequest documents referencing this repository
+  await PullRequest.deleteMany({ repository: repoId });
 
   await repository.deleteOne();
 

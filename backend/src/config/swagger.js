@@ -5,7 +5,9 @@ const json = (schema) => ({ content: { 'application/json': { schema } } });
 const errors = {
   400: { description: 'Validation error', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
   401: { description: 'Authentication error', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
+  403: { description: 'Forbidden', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
   404: { description: 'Not found', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
+  422: { description: 'Unprocessable entity', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
   500: { description: 'Server error', ...json({ $ref: '#/components/schemas/ErrorEnvelope' }) },
 };
 
@@ -57,6 +59,14 @@ const paths = {
   '/api/v1/repositories/{username}/{reponame}': { get: op(contracts.repositories.get), put: op(contracts.repositories.update), delete: op(contracts.repositories.remove) },
   '/api/v1/repositories/{username}/{reponame}/star': { post: op(contracts.repositories.star) },
   '/api/v1/repositories/{username}/{reponame}/fork': { post: op(contracts.repositories.fork) },
+  '/api/v1/repos/{username}/{reponame}/settings/branch-protection': {
+    get: op(contracts.branchProtection.list),
+    post: op(contracts.branchProtection.create),
+  },
+  '/api/v1/repos/{username}/{reponame}/settings/branch-protection/{ruleId}': {
+    put: op(contracts.branchProtection.update),
+    delete: op(contracts.branchProtection.remove),
+  },
   '/api/v1/activities/global': { get: op(contracts.activities.global) },
   '/api/v1/activities/user/{username}': { get: op(contracts.activities.user) },
   '/api/v1/activities/repository/{repo}': { get: op(contracts.activities.repository) },

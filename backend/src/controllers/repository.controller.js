@@ -14,6 +14,7 @@ import ACTIVITY_TYPES from "../constants/activityTypes.js";
 import paginate, { buildPaginationMeta } from "../utils/paginate.js";
 import { generateReadme } from "../utils/templates/readmeTemplates.js";
 import { generateGitignore } from "../utils/templates/gitignoreTemplates.js";
+import eventEmitter from '../events/eventEmitter.js';
 
 // DRY helper — resolves a :username param to the owner document's _id.
 // Returns null when the username does not exist so callers can 404 cleanly.
@@ -87,6 +88,14 @@ export const createRepository = asyncHandler(async (req, res, next) => {
   } catch {
     // Prevent activity logging failures from blocking repository creation
   }
+
+  eventEmitter.emit('REPO_CREATED', {
+    actorId: req.user._id,
+    repositoryId: repository._id,
+    repoName: repository.name,
+    visibility: repository.visibility,
+    ipAddress: req.ip,
+  });
 
   sendSuccess(res, 201, repository, "Repository created successfully");
 });
@@ -182,6 +191,14 @@ export const updateRepository = asyncHandler(async (req, res, next) => {
 
   await repository.save();
 
+  eventEmitter.emit('REPO_UPDATED', {
+    actorId: req.user._id,
+    repositoryId: repository._id,
+    repoName: repository.name,
+    changes: req.body,
+    ipAddress: req.ip,
+  });
+
   sendSuccess(res, 200, repository, "Repository updated successfully");
 });
 
@@ -227,6 +244,13 @@ export const deleteRepository = asyncHandler(async (req, res, next) => {
   await PullRequest.deleteMany({ repository: repoId });
 
   await repository.deleteOne();
+
+  eventEmitter.emit('REPO_DELETED', {
+    actorId: req.user._id,
+    repositoryId: repository._id,
+    repoName: repository.name,
+    ipAddress: req.ip,
+  });
 
   sendSuccess(res, 200, null, "Repository deleted successfully");
 });
@@ -318,60 +342,43 @@ export const forkRepository = asyncHandler(async (req, res, next) => {
     return next(new AppError("You cannot fork your own repository", 400));
   }
 
+  // Check if already forked
+  const existing = await Repository.findOne({
+    owner: req.user.id,
+    forkedFrom: original._id,
+  });
+
+  if (existing) {
+    return next(new AppError("You have already forked this repository", 400));
+  }
+
+  let forkName = original.name;
+  const nameConflict = await Repository.findOne({
+    owner: req.user.id,
+    name: forkName,
+  });
+
+  if (nameConflict) {
+    forkName = `${original.name}-fork`;
+    const suffixConflict = await Repository.findOne({
+      owner: req.user.id,
+      name: forkName,
+    });
+    if (suffixConflict) {
+      return next(
+        new AppError(
+          `A repository named "${forkName}" already exists in your account. Please rename it first.`,
+          409,
+        ),
+      );
+    }
+  }
+
   const session = await mongoose.startSession();
   let forked;
 
   try {
     session.startTransaction();
-
-    const existingQuery = Repository.findOne({
-      name: reponame,
-      owner: req.user.id,
-      forkedFrom: original._id,
-    });
-    const existing =
-      typeof existingQuery?.session === "function"
-        ? await existingQuery.session(session)
-        : await existingQuery;
-
-    if (existing) {
-      await session.abortTransaction();
-      return next(new AppError("You have already forked this repository", 400));
-    }
-
-    // Resolve a safe fork name — auto-suffix if original name is taken
-    // by a non-fork repo already in the user's account
-    let forkName = original.name;
-    const nameConflictQuery = Repository.findOne({
-      owner: req.user.id,
-      name: forkName,
-    });
-    const nameConflict =
-      typeof nameConflictQuery?.session === "function"
-        ? await nameConflictQuery.session(session)
-        : await nameConflictQuery;
-
-    if (nameConflict) {
-      forkName = `${original.name}-fork`;
-      const suffixConflictQuery = Repository.findOne({
-        owner: req.user.id,
-        name: forkName,
-      });
-      const suffixConflict =
-        typeof suffixConflictQuery?.session === "function"
-          ? await suffixConflictQuery.session(session)
-          : await suffixConflictQuery;
-
-      if (suffixConflict) {
-        await session.abortTransaction();
-        return next(
-          new AppError(
-            `A repository named "${forkName}" already exists in your account. Please rename it first.`,
-            409,
-          ),
-        );
-      }
-    }
 
     [forked] = await Repository.create(
       [
@@ -389,15 +396,31 @@ export const forkRepository = asyncHandler(async (req, res, next) => {
       { session },
     );
 
-    original.forks.push(forked._id);
-    await original.save({ session });
-    await session.commitTransaction();
+    await Repository.updateOne(
+      { _id: original._id },
+      { $push: { forks: forked._id } },
+      { session },
+    );
 
-    sendSuccess(res, 201, forked, "Repository forked successfully");
+    await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-    next(error);
+    return next(new AppError("Failed to fork repository", 500));
   } finally {
     session.endSession();
   }
+
+  try {
+    await logActivity({
+      actor: req.user.id,
+      type: ACTIVITY_TYPES.REPOSITORY_FORKED,
+      repository: forked._id,
+      metadata: {
+        repoName: forked.name,
+        forkedFrom: original.name,
+      },
+    });
+  } catch {}
+
+  sendSuccess(res, 201, forked, "Repository forked successfully");
 });

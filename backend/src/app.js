@@ -41,6 +41,12 @@ const createApp = () => {
 
   app.disable("x-powered-by");
 
+  // Trust the first reverse-proxy hop (Render, Railway, nginx, etc.) so that
+  // rate limiters and IP-based checks use the real client IP from
+  // X-Forwarded-For rather than the proxy's address. Set TRUST_PROXY=0 to
+  // disable when running without a proxy (direct Node to internet).
+  if (process.env.TRUST_PROXY !== '0') {
+    app.set('trust proxy', 1);
   if (process.env.TRUST_PROXY === "1") {
     app.set("trust proxy", 1);
   }

@@ -86,6 +86,7 @@ const resolveVisibleRepoIds = async (caller, pinnedRepo) => {
     Repository.find({ visibility: 'private', owner: caller._id }).select('_id'),
   ]);
   return [...publicRepos, ...ownedPrivateRepos].map((r) => r._id);
+};
 const resolveMergeRepository = async (pullRequest) => {
   const repositoryId = pullRequest.repository?._id || pullRequest.repository;
   const repository = await Repository.findById(repositoryId).select('name owner defaultBranch');

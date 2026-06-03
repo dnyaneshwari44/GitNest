@@ -10,7 +10,6 @@ import {
   updatePullRequest,
 } from '../controllers/pullRequest.controller.js';
 import { protect, optionalProtect, requirePullRequestAccess } from '../middleware/authMiddleware.js';
-import { protect, requirePullRequestAccess } from '../middleware/authMiddleware.js';
 import schemaValidator from '../middleware/schemaValidator.js';
 import { contracts } from '../contracts/index.js';
 

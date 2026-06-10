@@ -662,7 +662,6 @@ export default function GitNestHomepage() {
 
                     {/* FEATURE GRID */}
                     <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-8">
-
                         {[
                             {
                                 title: "Version Control",
@@ -707,22 +706,29 @@ export default function GitNestHomepage() {
                                     duration: 0.6,
                                     delay: index * 0.15,
                                 }}
-                                className={`group relative overflow-hidden rounded-[34px] border border-white/60 dark:border-white/5 bg-gradient-to-br ${feature.bg} ${feature.darkBg} backdrop-blur-xl p-8 shadow-[0_10px_40px_rgba(15,23,42,0.05)] hover:-translate-y-2 hover:shadow-[0_20px_60px_rgba(15,23,42,0.12)] transition-all duration-500`}
+                                className={`group relative overflow-hidden rounded-[34px] border border-white/60 dark:border-white/5 bg-gradient-to-br ${feature.bg} ${feature.darkBg} backdrop-blur-xl p-8  hover:-translate-y-3 hover:shadow-[0_0_40px_rgba(255,255,255,0.12)] shadow-[0_10px_40px_rgba(15,23,42,0.05)]transition-all duration-500`}
                             >
-
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/55 via-white/15 to-transparent dark:from-black dark:via-white/5  pointer-events-none" />
 
                                 {/* TOP GLOW */}
                                 <div
-                                    className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20"
+                                    className="absolute top-0 right-0 w-34 h-34 rounded-full blur-3xl opacity-20 group-hover:opacity-60 transition-all duration-500"
                                     style={{
                                         background: feature.color,
                                     }}
                                 />
 
+                                {/* GLOW */}
+                                <div
+                                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 rounded-[34px] pointer-events-none"
+                                style={{
+                                    boxShadow: `0 0 50px ${feature.color}60`,
+                                }}
+                                />
+
                                 {/* ICON */}
                                 <div
-                                    className="relative w-20 h-20 rounded-[24px] border border-white/60 flex items-center justify-center shadow-inner mb-10"
+                                    className="relative w-20 h-20 rounded-[24px] border border-white/60 flex items-center justify-center shadow-inner mb-10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"
                                     style={{
                                         background: `${feature.color}10`,
                                     }}
@@ -739,7 +745,7 @@ export default function GitNestHomepage() {
                                 <div className="flex items-center gap-2 mb-6">
 
                                     <div
-                                        className="w-10 h-1 rounded-full"
+                                        className="w-10 h-1 rounded-full group-hover:w-16 transition-all duration-500"
                                         style={{
                                             background: feature.color,
                                         }}
@@ -781,7 +787,7 @@ export default function GitNestHomepage() {
                                     }}
                                 >
                                     <div
-                                        className="w-3 h-3 rounded-full"
+                                        className="w-3 h-3 rounded-full group-hover:scale-125 transition-all duration-500"
                                         style={{
                                             background: feature.color,
                                         }}

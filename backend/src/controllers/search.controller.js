@@ -6,11 +6,14 @@ import AppError from '../utils/AppError.js';
 import { sendPaginated } from '../utils/responseHandlers.js';
 import paginate, { buildPaginationMeta } from '../utils/paginate.js';
 import { sanitizeSearchQuery } from '../utils/sanitizeSearchQuery.js';
+import { searchFiles, searchCommits} from '../services/search.service.js';
 
 const SEARCH_TYPES = {
   USERS: 'users',
   REPOSITORIES: 'repositories',
   PULL_REQUESTS: 'pullRequests',
+  FILES: 'files',
+  COMMITS: 'commits',
   ALL: 'all',
 };
 
@@ -95,6 +98,36 @@ const performSearch = async (query, type, skip, limit, userId) => {
           count,
         }));
       })
+    );
+  }
+
+  if (type === SEARCH_TYPES.ALL || type === SEARCH_TYPES.FILES) {
+    queries.push(
+      searchFiles(
+        sanitizedQuery,
+        userId,
+        skip,
+        limit
+      ).then(({ items, count }) => ({
+        type: SEARCH_TYPES.FILES,
+        items,
+        count,
+      }))
+    );
+  }
+  
+  if (type === SEARCH_TYPES.ALL || type === SEARCH_TYPES.COMMITS) {
+    queries.push(
+      searchCommits(
+        sanitizedQuery,
+        userId,
+        skip,
+        limit
+      ).then(({ items, count }) => ({
+        type: SEARCH_TYPES.COMMITS,
+        items,
+        count,
+      }))
     );
   }
 

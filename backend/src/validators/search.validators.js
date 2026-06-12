@@ -49,7 +49,7 @@ export const searchQueryValidator = [
     .custom(rejectNoSqlInjectionPatterns),
   query('type')
     .optional()
-    .isIn(['users', 'repositories', 'pullRequests', 'all'])
+    .isIn(['users', 'repositories', 'pullRequests', 'files', 'commits', 'all'])
     .withMessage('Type must be one of: users, repositories, pullRequests, or all'),
   query('page')
     .optional()

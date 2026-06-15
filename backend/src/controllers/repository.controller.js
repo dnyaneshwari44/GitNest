@@ -50,30 +50,38 @@ export const createRepository = asyncHandler(async (req, res, next) => {
     topics,
   });
 
-  try {
-    const repoPath = path.resolve(
-      process.cwd(),
-      "repositories",
-      req.user.id,
-      repository.name,
-    );
+try {
+  const repoPath = path.resolve(
+    process.cwd(),
+    "repositories",
+    req.user.id,
+    repository.name,
+  );
 
-    fs.mkdirSync(repoPath, { recursive: true });
+  fs.mkdirSync(repoPath, { recursive: true });
 
-    const git = simpleGit(repoPath);
+  const git = simpleGit(repoPath);
 
-    await git.init();
+  await git.init();
 
-    const readmePath = path.join(repoPath, "README.md");
-    fs.writeFileSync(readmePath, generateReadme(repository, req.user.username));
+  const readmePath = path.join(repoPath, "README.md");
+  fs.writeFileSync(readmePath, generateReadme(repository, req.user.username));
 
-    const gitignorePath = path.join(repoPath, ".gitignore");
-    fs.writeFileSync(gitignorePath, generateGitignore(repository.language));
-  } catch (error) {
+  const gitignorePath = path.join(repoPath, ".gitignore");
+  fs.writeFileSync(gitignorePath, generateGitignore(repository.language));
+} catch (error) {
+  
+  const isNonFatalWindowsWarning =
+    error.message?.includes('language override unsupported') ||
+    error.message?.includes('warning:');
+
+  if (!isNonFatalWindowsWarning) {
     await repository.deleteOne();
-
     return next(new AppError("Failed to initialize repository storage", 500));
   }
+
+  console.warn(`[REPO_CREATE] Non-fatal git warning ignored: ${error.message}`);
+}
 
   try {
     await logActivity({

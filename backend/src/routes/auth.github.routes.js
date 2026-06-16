@@ -108,10 +108,12 @@ router.post("/exchange", exchangeLimiter, async (req, res) => {
     return res.status(400).json({ message: "Invalid exchange code format" });
   }
 
-  const redis = getRedisClient();
+ const redis = getRedisClient();
   let jwt = null;
 
   if (redis) {
+    // Single atomic GETDEL — eliminates redundant GET call
+    // and closes the race condition window between GET and GETDEL
     const raw = await redis.getdel(`${CODE_PREFIX}${code}`);
     if (raw) {
       jwt = raw;

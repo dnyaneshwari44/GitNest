@@ -17,7 +17,7 @@ import {
   Copy,
   Star,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import FAQ from "../components/FAQ/FAQ";
@@ -56,6 +56,8 @@ export default function GitNestHomepage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [marqueePaused, setMarqueePaused] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+
+  const location = useLocation();
 
   const marqueeItems = [
     "MERN Stack",
@@ -151,6 +153,21 @@ export default function GitNestHomepage() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const targetSection = document.querySelector(location.hash);
+
+    if (!targetSection) return;
+
+    setTimeout(() => {
+      targetSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }, [location]);
 
   const handleCopyUrl = async () => {
     const repoUrl = `${window.location.origin}/Ankita15k/gitnest-core`;

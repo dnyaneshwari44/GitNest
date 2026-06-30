@@ -384,40 +384,58 @@ export default function GitNestHomepage() {
               </Link>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-2xl bg-white dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 flex items-center justify-center shadow-lg">
-                  <Code2 className="w-5 h-5 text-[#00dc82]" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              <div className="flex items-center gap-5 rounded-3xl border border-zinc-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-5 py-5 transition-all duration-300 hover:border-[#00dc82]/30 hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#10141b]">
+                  <Code2 className="h-6 w-6 text-[#00dc82]" />
                 </div>
-                <span className="text-zinc-700 dark:text-zinc-300 font-medium">
-                  MERN
-                </span>
+                <div>
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    MERN
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-2xl bg-white dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 flex items-center justify-center shadow-lg">
-                  <Users className="w-5 h-5 text-[#00dc82]" />
+
+              <div className="flex items-center gap-5 rounded-3xl border border-zinc-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-5 py-5 transition-all duration-300 hover:border-[#00dc82]/30 hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#10141b]">
+                  <Users className="h-6 w-6 text-[#00dc82]" />
                 </div>
-                <span className="text-zinc-700 dark:text-zinc-300 font-medium">
-                  GSSOC <br />
-                  Community
-                </span>
+                <div className="leading-tight">
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    GSSOC
+                  </p>
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    Community
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-2xl bg-white dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 flex items-center justify-center shadow-lg">
-                  <Wand2 className="w-5 h-5 text-[#00dc82]" />
+
+              <div className="flex items-center gap-5 rounded-3xl border border-zinc-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-5 py-5 transition-all duration-300 hover:border-[#00dc82]/30 hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#10141b]">
+                  <Wand2 className="h-6 w-6 text-[#00dc82]" />
                 </div>
-                <span className="text-zinc-700 dark:text-zinc-300 font-medium">
-                  AI <br />
-                  Workflows
-                </span>
+                <div className="leading-tight">
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    AI
+                  </p>
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    Workflows
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-2xl bg-white dark:bg-white/[0.03] border border-zinc-200 dark:border-white/10 flex items-center justify-center shadow-lg">
-                  <Shield className="w-5 h-5 text-[#00dc82]" />
+
+              <div className="flex items-center gap-5 rounded-3xl border border-zinc-200 dark:border-white/10 bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-5 py-5 transition-all duration-300 hover:border-[#00dc82]/30 hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#10141b]">
+                  <Shield className="h-6 w-6 text-[#00dc82]" />
                 </div>
-                <span className="text-zinc-700 dark:text-zinc-300 font-medium">
-                  Secure & Reliable
-                </span>
+                <div className="leading-tight">
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    Secure &
+                  </p>
+                  <p className="text-base xl:text-lg font-semibold text-zinc-800 dark:text-white">
+                    Reliable
+                  </p>
+                </div>
               </div>
             </div>
           </motion.div>
